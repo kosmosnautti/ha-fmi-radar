@@ -41,9 +41,13 @@ class FmiRadar extends HTMLElement {
     req.open('GET', this.jsonUrls[i]);
     req.onreadystatechange = () => {
       if(req.readyState === XMLHttpRequest.DONE && req.status === 200) {
-        let jsonData = JSON.parse(req.responseText);
-        this.radarImages = [...this.radarImages, ...jsonData.images];
-        this.getImages(i + 1, len);
+        try {
+          let jsonData = JSON.parse(req.responseText);
+          this.radarImages = [...this.radarImages, ...jsonData.images];
+          this.getImages(i + 1, len);
+        } catch(e) {
+          throw new Error('Ilmatieteen laitokselta vastaanotettu JSON on virheellinen: ' + e);
+        }
       }
     }
     req.send();
@@ -73,6 +77,26 @@ class FmiRadar extends HTMLElement {
       radarImgContainer.appendChild(radarTime);
       this.content.appendChild(radarImgContainer);
     });
+    
+    if (this.config.overlay) {
+      try {
+        let jsonOverlay = JSON.parse(this.config.overlay);
+        for (const [objName, objData] of Object.entries(jsonOverlay)) {
+          if ('css' in objData) {
+            let objOverlay = document.createElement('div');
+            objOverlay.className = 'radar-overlay';
+            objOverlay.id = objName;
+            objOverlay.style = 'position: absolute; ' + objData.css;
+            if ('teksti' in objData) {
+              objOverlay.textContent = objData.teksti;
+            }
+            this.content.appendChild(objOverlay);
+          }
+        }
+      } catch(e) {
+        throw new Error('Kuvan päälle lisättävien elementtien JSON on virheellinen: ' + e);
+      }
+    }
   }
   
   startSlideshow = () => {
@@ -226,6 +250,12 @@ class FmiRadarEditor extends LitElement {
             .configValue="${"time_prefix"}"
             @focusout="${this.valueChanged}"
           ></paper-input>
+          <paper-input
+            label="Kuvan päälle lisättävät elementit JSON-muodossa"
+            .value="${this.config.overlay}"
+            .configValue="${"overlay"}"
+            @focusout="${this.valueChanged}"
+          ></paper-input>
         </div>
       </div>
     `;
@@ -242,4 +272,4 @@ window.customCards.push({
 
 customElements.define('fmi-radar', FmiRadar);
 customElements.define('fmi-radar-editor', FmiRadarEditor);
-console.info('%c FMI-Radar Card %c v0.01 ', 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
+console.info('%c FMI-Radar Card %c v0.02 ', 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
